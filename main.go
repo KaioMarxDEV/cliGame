@@ -10,7 +10,7 @@ import (
 
 func main() {
 	csvFile := flag.String("csv", "problems.csv", "a csv file in format of question,answer")
-
+	// TODO: create a time limit for each question
 	flag.Parse()
 
 	file, err := os.Open(*csvFile)
