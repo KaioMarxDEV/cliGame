@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 )
 
 func main() {
 	csvFile := flag.String("csv", "problems.csv", "a csv file in format of question,answer")
-	// TODO: create a time limit for each question
+	timeLimit := flag.Int("limit", 30, "a time limit in seconds with 30s as default")
 	flag.Parse()
 
 	file, err := os.Open(*csvFile)
@@ -25,21 +27,31 @@ func main() {
 		log.Fatalf("failed while reading the csv file passed")
 	}
 
-	x := parseFields(fields)
+	problems := parseFields(fields)
 
-	resultInput := ""
+	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
+
 	streak := 0
 
-	for i, p := range x {
-		fmt.Printf("Problem#%d: %s, Your Guess: ", i+1, p.q)
-		fmt.Scan(&resultInput)
-		if resultInput == p.a {
-			fmt.Print("RIGHT ANSWER\n")
-			streak += 1
-			continue
-		} else {
-			fmt.Printf("WRONG ANSWER\nYou LOST! --- SCORE:%d", streak)
-			break
+outer:
+	for i, p := range problems {
+		fmt.Printf("Problem #%d: %s, Your Guess: ", i+1, p.q)
+		resultCh := make(chan string)
+		go func() {
+			var resultInput string
+			fmt.Scan(&resultInput)
+			resultCh <- resultInput
+		}()
+
+		select {
+		case <-timer.C:
+			fmt.Printf("\nRun out of time --- Scored %d out of %d", streak, len(problems))
+			break outer
+		case answer := <-resultCh:
+			if answer == p.a {
+				fmt.Print("RIGHT ANSWER\n")
+				streak += 1
+			}
 		}
 	}
 }
@@ -49,7 +61,7 @@ func parseFields(lines [][]string) []Problem {
 	for i, lane := range lines {
 		ret[i] = Problem{
 			q: lane[0],
-			a: lane[1],
+			a: strings.TrimSpace(lane[1]),
 		}
 	}
 	return ret
